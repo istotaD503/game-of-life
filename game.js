@@ -2,16 +2,18 @@
 // state of the game is located on the DOM
 
 var gameOfLife = {
-  width: 10,
-  height: 10, // width and height dimensions of the board
+  width: 30,
+  height: 30, // width and height dimensions of the board
   stepInterval: null, // should be used to hold reference to an interval that is "playing" the game
   board: document.getElementById('board'),
   clearBtn: document.getElementById('clear_btn'),
   resetBtn: document.getElementById('reset_btn'),
   playBtn: document.getElementById('play_btn'),
+  stepBtn: document.getElementById('step_btn'),
   allCells: null,
+  autoplay: null,
 
-  createAndShowBoard: function() {
+  createAndShowBoard()  {
     let generateBody = (height, width) => {
       let tableBody = '';
       for (let h = 0; h < height; h++) {
@@ -29,14 +31,17 @@ var gameOfLife = {
     this.setupBoardEvents();
   },
 
-  setupBoardEvents: function() {
+  setupBoardEvents() {
     // we can attacha listener to the board then we can read the target
     // and apply the nessasary changes to the target
     this.step = this.step.bind(this);
     this.allCells = this.board.querySelectorAll('td');
     this.clear = this.clear.bind(this); // need to bind because clear is called in different context!
     this.random = this.random.bind(this);
-    this.playBtn.addEventListener('click', this.step);
+    this.play = this.enableAutoPlay.bind(this)
+
+    this.playBtn.addEventListener('click', this.play)
+    this.stepBtn.addEventListener('click', this.step);
     this.clearBtn.addEventListener('click', this.clear);
     this.resetBtn.addEventListener('click', this.random);
     this.board.addEventListener('click', this.onCellClick);
@@ -60,9 +65,9 @@ var gameOfLife = {
   },
 
   setRandom(cell) {
-    let random = Math.floor(Math.random() * 2);
-    cell.className = random ? 'alive' : 'dead';
-    cell.dataset.status = random ? 'alive' : 'dead';
+    let random = (Math.random()*100).toFixed();
+    cell.className = random > 80 ? 'alive' : 'dead';
+    cell.dataset.status = random > 80 ? 'alive' : 'dead';
   },
 
   random() {
@@ -71,6 +76,7 @@ var gameOfLife = {
 
   clear() {
     this.allCells.forEach(cell => this.setDead(cell));
+    clearInterval(this.autoplay)
   },
 
   // 1. if it's alive and 2 more alive => alive
@@ -84,9 +90,10 @@ var gameOfLife = {
     let getStatus = (table, x, y) => {
       let cell = table[x].cells[y];
       // status is a sum of neighbour statuses
-      let neighbours, total
+      let neig = [], total
       if (x > 0 && x < this.width - 1 && y > 0 && y < this.height - 1) {
-        neighbours = [
+
+        neig = [
           table[x - 1].cells[y - 1],
           table[x].cells[y - 1],
           table[x + 1].cells[y - 1],
@@ -96,16 +103,18 @@ var gameOfLife = {
           table[x].cells[y + 1],
           table[x + 1].cells[y + 1]
         ];
-        total = neighbours.reduce((total, elt) => {
-          return (total += elt.dataset.status === 'alive');
-        }, 0);
         // these cells have all neigbours! Total for them
       } else {
         // for border cells ???!!!!!!
       }
-      if (cell.dataset.status === 'alive' && total >= 2) {
+
+      total = neig.reduce((total, elt) => {
+        return (total += elt.dataset.status === 'alive');
+      }, 0);
+
+      if (cell.dataset.status === 'alive' && total >= 2 && total <=3) {
         return 'alive'
-      } else if (total >= 3) {
+      } else if (total === 3) {
         return 'alive'
       } else {
         return 'dead'
@@ -121,26 +130,16 @@ var gameOfLife = {
         newState.push(getStatus(this.board.rows, i, j))
       }
     }
-    
+
     this.allCells.forEach((cell, idx) => {
       cell.className = newState[idx];
       cell.dataset.status = newState[idx];
     })
-    // console.log(newState)
-    // for 1-1 => 0-0, 1-0, 2-0 | 0   1   2
-    // 0-1,      2-1 | 10 |11| 12
-    // 0-2, 1-2, 2-2 | 20  21  22
-    // ???
-    // ?x?
-    // ???
-    // difference depends on the width! % width
-    // we don't mutate our array, but create a new one
-    // after checking loop is done we loop again and assign the new state
+
   },
 
   enableAutoPlay: function() {
-    // Start Auto-Play by running the 'step' function
-    // automatically repeatedly every fixed time interval
+    this.autoplay = setInterval(this.step, 300)
   }
 };
 
