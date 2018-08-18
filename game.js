@@ -1,92 +1,147 @@
-var gameOfLife = {
-  
-  width: 12, 
-  height: 12, // width and height dimensions of the board
-  stepInterval: null, // should be used to hold reference to an interval that is "playing" the game
+// game is an object which props are functions and values
+// state of the game is located on the DOM
 
-  createAndShowBoard: function () {
-    
-    // create <table> element
-    var goltable = document.createElement("tbody");
-    
-    // build Table HTML
-    var tablehtml = '';
-    for (var h=0; h<this.height; h++) {
-      tablehtml += "<tr id='row+" + h + "'>";
-      for (var w=0; w<this.width; w++) {
-        tablehtml += "<td data-status='dead' id='" + w + "-" + h + "'></td>";
+var gameOfLife = {
+  width: 10,
+  height: 10, // width and height dimensions of the board
+  stepInterval: null, // should be used to hold reference to an interval that is "playing" the game
+  board: document.getElementById('board'),
+  clearBtn: document.getElementById('clear_btn'),
+  resetBtn: document.getElementById('reset_btn'),
+  playBtn: document.getElementById('play_btn'),
+  allCells: null,
+
+  createAndShowBoard: function() {
+    let generateBody = (height, width) => {
+      let tableBody = '';
+      for (let h = 0; h < height; h++) {
+        tableBody += "<tr id='row+" + h + "'>";
+        for (let w = 0; w < width; w++) {
+          tableBody += "<td data-status='dead' id='" + w + '-' + h + "'></td>";
+        }
+        tableBody += '</tr>';
       }
-      tablehtml += "</tr>";
-    }
-    goltable.innerHTML = tablehtml;
-    
-    // add table to the #board element
-    var board = document.getElementById('board');
-    board.appendChild(goltable);
-    
-    // once html elements are added to the page, attach events to them
+      return `<tbody>${tableBody}</tbody>`;
+    };
+
+    this.board.innerHTML = generateBody(this.height, this.width);
+
     this.setupBoardEvents();
   },
 
-  forEachCell: function (iteratorFunc) {
-    /* 
-      Write forEachCell here. You will have to visit
-      each cell on the board, call the "iteratorFunc" function,
-      and pass into func, the cell and the cell's x & y
-      coordinates. For example: iteratorFunc(cell, x, y)
-    */
-  },
-  
   setupBoardEvents: function() {
-    // each board cell has an CSS id in the format of: "x-y" 
-    // where x is the x-coordinate and y the y-coordinate
-    // use this fact to loop through all the ids and assign
-    // them "click" events that allow a user to click on 
-    // cells to setup the initial state of the game
-    // before clicking "Step" or "Auto-Play"
-    
-    // clicking on a cell should toggle the cell between "alive" & "dead"
-    // for ex: an "alive" cell be colored "blue", a dead cell could stay white
-    
-    // EXAMPLE FOR ONE CELL
-    // Here is how we would catch a click event on just the 0-0 cell
-    // You need to add the click event on EVERY cell on the board
-    
-    var onCellClick = function (e) {
-      
-      // QUESTION TO ASK YOURSELF: What is "this" equal to here?
-      
-      // how to set the style of the cell when it's clicked
-      if (this.dataset.status == 'dead') {
-        this.className = 'alive';
-        this.dataset.status = 'alive';
+    // we can attacha listener to the board then we can read the target
+    // and apply the nessasary changes to the target
+    this.step = this.step.bind(this);
+    this.allCells = this.board.querySelectorAll('td');
+    this.clear = this.clear.bind(this); // need to bind because clear is called in different context!
+    this.random = this.random.bind(this);
+    this.playBtn.addEventListener('click', this.step);
+    this.clearBtn.addEventListener('click', this.clear);
+    this.resetBtn.addEventListener('click', this.random);
+    this.board.addEventListener('click', this.onCellClick);
+  },
+
+  onCellClick(e) {
+    let cell = e.target;
+    let status = cell.dataset.status == 'dead' ? 'alive' : 'dead';
+    cell.className = status;
+    cell.dataset.status = status;
+  },
+
+  setDead(cell) {
+    cell.className = 'dead';
+    cell.dataset.status = 'dead';
+  },
+
+  setAlive(cell) {
+    cell.className = 'alive';
+    cell.dataset.status = 'alive';
+  },
+
+  setRandom(cell) {
+    let random = Math.floor(Math.random() * 2);
+    cell.className = random ? 'alive' : 'dead';
+    cell.dataset.status = random ? 'alive' : 'dead';
+  },
+
+  random() {
+    this.allCells.forEach(cell => this.setRandom(cell));
+  },
+
+  clear() {
+    this.allCells.forEach(cell => this.setDead(cell));
+  },
+
+  // 1. if it's alive and 2 more alive => alive
+  // 2. if it's dead and 3 or more alive => alive
+  // 3. if no matter the state if < 2 are aleve => dead
+
+  step: function() {
+    let row;
+    let newState = []
+
+    let getStatus = (table, x, y) => {
+      let cell = table[x].cells[y];
+      // status is a sum of neighbour statuses
+      let neighbours, total
+      if (x > 0 && x < this.width - 1 && y > 0 && y < this.height - 1) {
+        neighbours = [
+          table[x - 1].cells[y - 1],
+          table[x].cells[y - 1],
+          table[x + 1].cells[y - 1],
+          table[x - 1].cells[y],
+          table[x + 1].cells[y],
+          table[x - 1].cells[y + 1],
+          table[x].cells[y + 1],
+          table[x + 1].cells[y + 1]
+        ];
+        total = neighbours.reduce((total, elt) => {
+          return (total += elt.dataset.status === 'alive');
+        }, 0);
+        // these cells have all neigbours! Total for them
       } else {
-        this.className = 'dead';
-        this.dataset.status = 'dead';
+        // for border cells ???!!!!!!
       }
-      
+      if (cell.dataset.status === 'alive' && total >= 2) {
+        return 'alive'
+      } else if (total >= 3) {
+        return 'alive'
+      } else {
+        return 'dead'
+      }
     };
+
+    for (let i = 0; i < this.board.rows.length; i++) {
+      row = this.board.rows[i].cells;
+      for (let j = 0; j < row.length; j++) {
+        // we can calculate the cell only if i and j are within width and height bounds
+        // if they are not cell status is dead
+        cell = this.board.rows[i].cells[j];
+        newState.push(getStatus(this.board.rows, i, j))
+      }
+    }
     
-    var cell00 = document.getElementById('0-0');
-    cell00.addEventListener('click', onCellClick);
+    this.allCells.forEach((cell, idx) => {
+      cell.className = newState[idx];
+      cell.dataset.status = newState[idx];
+    })
+    // console.log(newState)
+    // for 1-1 => 0-0, 1-0, 2-0 | 0   1   2
+    // 0-1,      2-1 | 10 |11| 12
+    // 0-2, 1-2, 2-2 | 20  21  22
+    // ???
+    // ?x?
+    // ???
+    // difference depends on the width! % width
+    // we don't mutate our array, but create a new one
+    // after checking loop is done we loop again and assign the new state
   },
 
-  step: function () {
-    // Here is where you want to loop through all the cells
-    // on the board and determine, based on it's neighbors,
-    // whether the cell should be dead or alive in the next
-    // evolution of the game. 
-    //
-    // You need to:
-    // 1. Count alive neighbors for all cells
-    // 2. Set the next state of all cells based on their alive neighbors
-  },
-
-  enableAutoPlay: function () {
+  enableAutoPlay: function() {
     // Start Auto-Play by running the 'step' function
-    // automatically repeatedly every fixed time interval  
+    // automatically repeatedly every fixed time interval
   }
-  
 };
 
 gameOfLife.createAndShowBoard();
